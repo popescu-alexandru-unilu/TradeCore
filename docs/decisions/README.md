@@ -7,6 +7,7 @@ We document **why** TradeCore makes important technical choices, including trade
 | ID | Decision | Status | Related ticket |
 | --- | --- | --- | --- |
 | [ADR-0001](0001-api-error-status-representation.md) | API error responses expose numeric HTTP status | Proposed | [TRADE-002](https://github.com/popescu-alexandru-unilu/TradeCore/issues/2) |
+| [ADR-0002](0002-kafka-and-outbox.md) | Use Kafka for committed trade events; keep money operations transactional | Proposed | [TRADE-017](https://github.com/popescu-alexandru-unilu/TradeCore/issues/20) |
 
 ## How to use
 
