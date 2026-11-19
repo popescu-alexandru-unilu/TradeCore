@@ -30,6 +30,32 @@ Model an `Order` with the following fields:
 
 Use `limitPrice` rather than `bid` because the same field applies to buy *and* sell orders. Store `filledQuantity` because partial fills are possible. Do not store a mutable `remainingQuantity` or calculated total notional as redundant state: derive quantities and notional as needed. A future `version` for optimistic locking is distinct from the order ID.
 
+## Java implementation decisions (2026-11-19)
+
+The initial implementation uses a `public final class Order` with a **private constructor** and a **public static factory**:
+
+```java
+public static Order createOrder(
+        Long id, Long accountId, Long instrumentId,
+        OrderSide side, BigDecimal quantity, BigDecimal limitPrice) {
+    return new Order(id, accountId, instrumentId, side, quantity, limitPrice);
+}
+```
+
+- **Validate -> Assign -> Initialise:** check all three `Long` IDs are non-null and positive; require non-null `side`; require positive, non-null `quantity` and `limitPrice`; then assign the supplied fields. Initialise `status = OrderStatus.PENDING` and `filledQuantity = BigDecimal.ZERO` internally.
+- **Trust boundary:** the application/service layer supplies order IDs and account IDs from trusted state (eventually generated order ID and authenticated account), while the customer chooses instrument, side, quantity and limit price. Never accept `status` or `filledQuantity` from the customer or as normal new-order factory inputs.
+- **Field mutability:** prefer `private final` for `id`, `accountId`, `instrumentId`, `side`, `quantity`, and `limitPrice`. Keep `status` and `filledQuantity` mutable but encapsulated, changing them only through validated domain operations. A `final` class or static factory **does not** make an order immutable.
+- **Derived data:** implement `getRemainingQuantity()` as `quantity.subtract(filledQuantity)` rather than maintaining an independently mutable field. For cancelled orders this is the unfilled amount, not permission to execute it.
+- **Construction safeguards:** use `this.field = parameter` where names are shadowed, and report invalid input before mutating object state. Reuse validation helpers for positive `BigDecimal` amounts and positive `Long` IDs.
+
+### Enum implementations
+
+`OrderStatus` is a **finite-state machine expressed using a Java 21 switch expression** in `canTransitionTo(OrderStatus nextStatus)`. Return `false` for `null`; permit `PENDING -> PARTIALLY_FILLED|FILLED|CANCELLED`, `PARTIALLY_FILLED -> PARTIALLY_FILLED|FILLED|CANCELLED`, and no outgoing transitions from `FILLED` or `CANCELLED`. The `PARTIALLY_FILLED` self-transition represents additional executions that do not yet complete the order. Prefer a switch to referring to other enum constants in per-constant initialisation.
+
+`OrderSide` is a **rich enum**: `BUY(1)` and `SELL(-1)`, with a private enum constructor, an immutable `sign` property, `getSign()`, `opposite()`, `isBuy()`, `isSell()`, and `apply(BigDecimal quantity)`. Signed quantities can represent a **change in asset holdings**, not a cash-flow direction. Use `BigDecimal` rather than `double` to avoid binary floating-point precision issues.
+
+These are design choices for the initial domain implementation; persistence, execution deduplication, and atomic settlement are intentionally deferred.
+
 ## Invariants and state changes
 
 - `quantity > 0`, `limitPrice > 0`, and `0 <= filledQuantity <= quantity`.
