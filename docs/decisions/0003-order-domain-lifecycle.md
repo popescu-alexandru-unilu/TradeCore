@@ -56,6 +56,94 @@ public static Order createOrder(
 
 These are design choices for the initial domain implementation; persistence, execution deduplication, and atomic settlement are intentionally deferred.
 
+## Agreed Order behaviour and test scenarios (2026-11-21)
+
+The following records the implementation logic and tests developed during TRADE-004 coaching. **These are design and test expectations, not proof of a passing build.** The Order source and tests still need to be committed and verified with `mvn clean test`.
+
+### Domain operations
+
+**`getRemainingQuantity()` — derived state**
+
+```java
+public BigDecimal getRemainingQuantity() {
+    return quantity.subtract(filledQuantity);
+}
+```
+
+It takes **no argument**: it derives the result from this order's immutable original `quantity` and current `filledQuantity`. It returns *unfilled* shares, **not** necessarily shares eligible for execution (a `CANCELLED` order can still have a positive unfilled quantity).
+
+**`applyFill(BigDecimal amount)` — validate, calculate, commit**
+
+1. Reject `null`, zero and negative amounts with `IllegalArgumentException`.
+2. Reject fills when status is `FILLED` or `CANCELLED` with `IllegalStateException`.
+3. Reject `amount > getRemainingQuantity()` with `IllegalArgumentException`.
+4. Calculate `newFill = filledQuantity.add(amount)`. Determine `newStatus = FILLED` if `newFill.compareTo(quantity) == 0`, otherwise `PARTIALLY_FILLED`. For `BigDecimal`, use `compareTo`, not `<` or reference equality `==`.
+5. Check `status.canTransitionTo(newStatus)` and reject an invalid transition **before** updating fields.
+6. Only then assign `filledQuantity = newFill` and `status = newStatus`. Rejecting a fill must leave both fields unchanged.
+
+```java
+// After amount, terminal-state, and remaining-quantity validation:
+BigDecimal newFill = filledQuantity.add(amount);
+OrderStatus newStatus = newFill.compareTo(quantity) == 0
+        ? OrderStatus.FILLED
+        : OrderStatus.PARTIALLY_FILLED;
+
+if (!status.canTransitionTo(newStatus)) {
+    throw new IllegalStateException("Invalid order transition");
+}
+
+filledQuantity = newFill;
+status = newStatus;
+```
+
+**`cancel()` — validate FSM, then update status**
+
+```java
+public void cancel() {
+    if (!status.canTransitionTo(OrderStatus.CANCELLED)) {
+        throw new IllegalStateException("Cannot cancel this order");
+    }
+    status = OrderStatus.CANCELLED;
+}
+```
+
+The method is **public** for eventual application-service use. It does not reset `filledQuantity` or reverse already executed trades. Both `FILLED` and `CANCELLED` are terminal, so cancelling either fails. Repeated cancellation is a domain error under this FSM; a future HTTP endpoint can independently define idempotent request semantics.
+
+### Test fixture factory (not a production builder)
+
+Keep the validated six-argument `Order.createOrder(id, accountId, instrumentId, side, quantity, limitPrice)` static factory. For tests, use `OrderFixture` / `OrderFixtures` as a **test-only helper** in `src/test/java/dev/tradecore/domain/order/`; each call constructs a fresh object with default IDs, `BUY` side and a 200-unit limit price. A `buyOrder(BigDecimal quantity)` overload replaces only the requested quantity.
+
+```java
+public static Order buyOrder(BigDecimal quantity) {
+    return Order.createOrder(
+            1L, 10L, 5L,
+            OrderSide.BUY, quantity,
+            BigDecimal.valueOf(200));
+}
+```
+
+We chose a fixture factory to keep test setup compact without adding a production Builder Pattern while all six inputs remain mandatory. The domain factory continues to enforce validation. Expose read-only `getStatus()` and `getFilledQuantity()` to assert state; do not expose setters for them.
+
+### Agreed JUnit 5 test cases
+
+| Test | Setup and operation | Expected result |
+| --- | --- | --- |
+| `shouldCancelPartiallyFilledOrder` | Order 10, fill 4, cancel | `CANCELLED`, filled 4, unfilled 6 |
+| `shouldRejectFillAfterCancellation` | Order 10, cancel, then try fill 3 | `IllegalStateException`; still `CANCELLED`, filled 0 |
+| `shouldRejectFillAfterFullExecution` | Order 10, fill 10, then try fill 2 | `IllegalStateException`; remains `FILLED`, filled 10 |
+| `shouldRejectFillExceedingRemainingQuantity` | Order 10, fill 4, then try fill 7 | `IllegalArgumentException`; remains `PARTIALLY_FILLED`, filled 4 |
+| `shouldCompletePartiallyFilledOrder` | Order 10, fill 4, then fill 6 | `FILLED`, filled 10, unfilled 0 |
+| `shouldRejectCancellationOfAlreadyCancelledOrder` | Order 10, cancel twice | Second call throws `IllegalStateException`; remains `CANCELLED` |
+
+Tests should also cover constructor validation (invalid IDs, side, quantity, limit price), `null`/zero/negative fill amounts, exact-fill boundary, and attempted cancellation of an already `FILLED` order. No CI success is asserted until the source files are pushed and the test suite actually runs.
+
+### Separation of responsibilities
+
+- `Order` owns the order-specific lifecycle invariant `0 <= filledQuantity <= quantity` and legal FSM transitions.
+- `Account` owns in-memory cash reservation/release/execution behaviour for the existing domain model; it does **not** establish distributed transaction safety.
+- `Trade` will represent completed execution records, distinct from the original order request.
+- Financial persistence, cash ledger, idempotency, exchange/matching concurrency and Redis/Kafka integration are **later tickets**; they must not be treated as guaranteed by these pure-Java domain methods.
+
 ## Invariants and state changes
 
 - `quantity > 0`, `limitPrice > 0`, and `0 <= filledQuantity <= quantity`.
