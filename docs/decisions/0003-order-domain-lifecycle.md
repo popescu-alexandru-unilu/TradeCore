@@ -198,3 +198,7 @@ Example: an order for 10 shares fills 4 -> `filledQuantity=4`, `PARTIALLY_FILLED
 JUnit tests should verify valid creation, invalid quantities and prices, partial fill, repeated partial fills, exact full fill, rejection of excessive fills, cancellation before and after partial fill, preservation of filled quantity after cancellation, terminal state rejection, and invariant preservation after invalid operations.
 
 Follow-up work under TRADE-004 will define `Trade` and `CashLedgerEntry` and their relationships to `Order` and `Account`.
+
+## Debugging history
+
+See the [TRADE-004 debugging log](../debugging/TRADE-004-bug-log.md) for the Maven compiler failures, domain validation bugs, JUnit fixture/test corrections, root causes, and verification status. This log distinguishes confirmed Maven errors from issues identified during code review.
