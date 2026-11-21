@@ -7,6 +7,7 @@ We document **why** TradeCore makes important technical choices, including trade
 | ID | Decision | Status | Related ticket |
 | --- | --- | --- | --- |
 | [ADR-0001](0001-api-error-status-representation.md) | API error responses expose numeric HTTP status | Proposed | [TRADE-002](https://github.com/popescu-alexandru-unilu/TradeCore/issues/2) |
+| [ADR-0003](0003-order-domain-lifecycle.md) | Model limit-order lifecycle, partial fills and cancellation | Proposed | [TRADE-004](https://github.com/popescu-alexandru-unilu/TradeCore/issues/4) |
 
 ## How to use
 
