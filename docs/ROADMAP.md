@@ -30,5 +30,10 @@ Each stage groups engineering tickets. Use GitHub Issues and (optionally) a GitH
 - **TRADE-015** Authentication and authorization; accounts isolated per user.
 - **TRADE-016** Docker, metrics, load testing, deployment and runbook.
 
+## Planned later — Redis caching and read-path optimisation
+- **[TRADE-021](https://github.com/popescu-alexandru-unilu/TradeCore/issues/26)** Add a hybrid Redis cache: lazy load/cache-aside on reads, then version-aware **post-commit write-through-style refresh** (or invalidation) after PostgreSQL writes. Start with instrument reference data; optionally cache non-authoritative order display views. Measure hit rate, p95 latency, and DB load; test Redis outages, stale writes, TTL and cross-user isolation.
+- **Correctness boundary:** Redis is never authoritative for available funds, reservations, ledger changes, matching, or settlement. PostgreSQL remains the source of truth; cache updates are not part of the DB transaction. See [ADR-0004](decisions/0004-redis-hybrid-cache.md).
+- **Schedule:** Implement after [TRADE-005](https://github.com/popescu-alexandru-unilu/TradeCore/issues/5) (PostgreSQL/Flyway), ideally after the read APIs exist. This is a later optimisation, not part of TRADE-004.
+
 ## Process
 For each issue: business goal -> design -> implement -> test -> PR -> review -> merge. Avoid artificial use of algorithms.
