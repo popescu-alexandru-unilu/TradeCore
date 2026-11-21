@@ -8,6 +8,8 @@ We document **why** TradeCore makes important technical choices, including trade
 | --- | --- | --- | --- |
 | [ADR-0001](0001-api-error-status-representation.md) | API error responses expose numeric HTTP status | Proposed | [TRADE-002](https://github.com/popescu-alexandru-unilu/TradeCore/issues/2) |
 
+| [ADR-0004](0004-redis-hybrid-cache.md) | Combine cache-aside reads with versioned post-commit Redis refresh | Proposed | [TRADE-021](https://github.com/popescu-alexandru-unilu/TradeCore/issues/26) |
+
 ## How to use
 
 1. For a non-trivial design choice, copy [TEMPLATE.md](TEMPLATE.md) into a numbered ADR.
