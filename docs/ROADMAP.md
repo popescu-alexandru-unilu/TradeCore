@@ -26,8 +26,9 @@ Each stage groups engineering tickets. Use GitHub Issues and (optionally) a GitH
 - Redis performance caching — [TRADE-021](https://github.com/popescu-alexandru-unilu/TradeCore/issues/26); cache-aside reads and post-commit refresh/invalidation only for non-authoritative read models.
 - Kafka and transactional outbox — [TRADE-017](https://github.com/popescu-alexandru-unilu/TradeCore/issues/20) and [TRADE-018](https://github.com/popescu-alexandru-unilu/TradeCore/issues/21), after authoritative DB transactions are reliable.
 - AWS deployment — [TRADE-019](https://github.com/popescu-alexandru-unilu/TradeCore/issues/22) and optional [TRADE-020](https://github.com/popescu-alexandru-unilu/TradeCore/issues/23); not part of the MVP.
+- Kubernetes orchestration — [TRADE-022](https://github.com/popescu-alexandru-unilu/TradeCore/issues/31); learn with local `kind` after the MVP, then compare **Amazon EKS versus ECS Fargate** for AWS hosting. Keep PostgreSQL external (RDS on AWS), run Flyway migrations in a controlled step, and cost-gate EKS provisioning. Kubernetes is optional, not an MVP prerequisite.
 
-**Sequence rule:** no new Redis, Kafka or AWS infrastructure for the MVP. Existing designs/ADRs and tickets remain documented as deferred enhancements. Choose the smallest coherent implementation that demonstrates end-to-end correctness.
+**Sequence rule:** no new Redis, Kafka, Kubernetes or AWS infrastructure for the MVP. Existing designs/ADRs and tickets remain documented as deferred enhancements. Choose the smallest coherent implementation that demonstrates end-to-end correctness.
 
 ## Stage 1 — Foundation
 - **TRADE-001** Bootstrap Spring Boot 4.1.2 and Java 21. Verify `/api/health` returns HTTP 200 and `{"status":"ok"}`; `mvn test` succeeds; PR CI runs.
